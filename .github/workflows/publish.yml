@@ -1,0 +1,44 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Verify release commit is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor $GITHUB_SHA origin/main; then
+            echo "Release commit is not on main branch"
+            exit 1
+          fi
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Test installation
+        run: uv run --isolated --no-project --with dist/*.whl python -c "import cbor_model"
+
+      - name: Publish to PyPI
+        run: uv publish

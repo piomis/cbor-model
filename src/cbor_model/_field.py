@@ -43,6 +43,14 @@ class CBORField:
             :class:`CDDLGenerator` for this field.
         optional: Mark the field as optional in CDDL output regardless of
             its Python type annotation.
+        bstr_wrap: Encode the field value as embedded CBOR bytes (``bstr``).
+            The value is serialized to CBOR bytes on encoding and decoded
+            back on deserialization. In CDDL the type is rendered as
+            ``bstr .cbor <inner_type>``. When combined with ``tag``, the
+            tag wraps the ``bstr``: ``#6.N(bstr .cbor <inner_type>)``.
+            For :class:`CBORModel` fields the nested model's own
+            :meth:`~CBORModel.model_dump_cbor` is used so that its
+            ``cbor_config`` is respected.
         exclude_if: A callable that receives the field value and returns
             `True` if the field should be omitted from the serialized output.
             Useful for custom exclusion logic beyond `None` or empty values.
@@ -60,8 +68,8 @@ class CBORField:
     override_type: str | None = None
     override_name: str | None = None
     optional: bool = False
+    bstr_wrap: bool = False
     exclude_if: Callable[[Any], bool] | None = None
-    """A Callable that takes the field value and returns `True` if the field should be excluded from serialization. This can be used to implement custom exclusion logic beyond just `None` or empty values."""  # noqa: E501
 
     @property
     def identifier(self) -> int | str:

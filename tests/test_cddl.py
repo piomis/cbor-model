@@ -973,3 +973,45 @@ class TestLiteralCDDL:
         generator = CDDLGenerator()
         with pytest.raises(TypeError, match="Unsupported Literal value type"):
             generator.generate(Msg)
+
+
+class TestBstrWrapCDDL:
+    """Test CDDL generation for bstr_wrap fields."""
+
+    def test_bstr_wrap_simple_type(self) -> None:
+        class Wrapper(CBORModel):
+            payload: Annotated[dict[str, int], CBORField(key=0, bstr_wrap=True)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Wrapper)
+        assert "bstr .cbor" in cddl
+
+    def test_bstr_wrap_nested_model(self) -> None:
+        class Inner(CBORModel):
+            x: Annotated[int, CBORField(key=0)]
+
+        class Outer(CBORModel):
+            inner: Annotated[Inner, CBORField(key=0, bstr_wrap=True)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Outer)
+        assert "0: bstr .cbor Inner," in cddl
+
+    def test_bstr_wrap_with_tag(self) -> None:
+        class Wrapper(CBORModel):
+            payload: Annotated[int, CBORField(key=0, bstr_wrap=True, tag=1001)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Wrapper)
+        assert "0: #6.1001(bstr .cbor int)," in cddl
+
+    def test_bstr_wrap_override_type_skips_cbor_annotation(self) -> None:
+        class Wrapper(CBORModel):
+            payload: Annotated[
+                int, CBORField(key=0, bstr_wrap=True, override_type="my-type")
+            ]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Wrapper)
+        assert "my-type" in cddl
+        assert "bstr .cbor" not in cddl

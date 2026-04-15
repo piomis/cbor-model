@@ -40,6 +40,9 @@ class FieldProcessor:
             field_info,
         )
 
+        if cbor_field.bstr_wrap and not cbor_field.override_type:
+            cddl_type = f"bstr .cbor {cddl_type}"
+
         if cbor_field.tag is not None:
             cddl_type = f"#6.{cbor_field.tag}({cddl_type})"
 

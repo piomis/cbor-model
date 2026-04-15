@@ -802,3 +802,95 @@ class TestComputedFields:
         obj = Model(name="hello")
         cbor_bytes = obj.model_dump_cbor()
         assert cbor2.loads(cbor_bytes) == ["hello", "HELLO"]
+
+
+class TestBstrWrap:
+    def test_bstr_wrap_map_encoding_round_trip(self) -> None:
+        class Inner(CBORModel):
+            x: Annotated[int, CBORField(key=0)]
+
+        class Outer(CBORModel):
+            inner: Annotated[Inner, CBORField(key=0, bstr_wrap=True)]
+
+        obj = Outer(inner=Inner(x=42))
+        cbor_bytes = obj.model_dump_cbor()
+
+        raw = cbor2.loads(cbor_bytes)
+        assert isinstance(raw[0], bytes)
+        assert cbor2.loads(raw[0]) == {0: 42}
+
+        restored = Outer.model_validate_cbor(cbor_bytes)
+        assert restored == obj
+
+    def test_bstr_wrap_primitive_round_trip(self) -> None:
+        class Packet(CBORModel):
+            data: Annotated[int, CBORField(key=0, bstr_wrap=True)]
+
+        obj = Packet(data=99)
+        cbor_bytes = obj.model_dump_cbor()
+
+        raw = cbor2.loads(cbor_bytes)
+        assert isinstance(raw[0], bytes)
+        assert cbor2.loads(raw[0]) == 99
+
+        restored = Packet.model_validate_cbor(cbor_bytes)
+        assert restored == obj
+
+    def test_bstr_wrap_with_tag_round_trip(self) -> None:
+        class Packet(CBORModel):
+            payload: Annotated[int, CBORField(key=0, bstr_wrap=True, tag=1001)]
+
+        obj = Packet(payload=7)
+        cbor_bytes = obj.model_dump_cbor()
+
+        raw = cbor2.loads(cbor_bytes)
+        assert isinstance(raw[0], cbor2.CBORTag)
+        assert raw[0].tag == 1001
+        assert isinstance(raw[0].value, bytes)
+        assert cbor2.loads(raw[0].value) == 7
+
+        restored = Packet.model_validate_cbor(cbor_bytes)
+        assert restored == obj
+
+    def test_bstr_wrap_array_encoding_round_trip(self) -> None:
+        class Inner(CBORModel):
+            v: Annotated[str, CBORField(key=0)]
+
+        class Outer(CBORModel):
+            cbor_config = CBORConfig(encoding="array")
+            inner: Annotated[Inner, CBORField(index=0, bstr_wrap=True)]
+
+        obj = Outer(inner=Inner(v="hi"))
+        cbor_bytes = obj.model_dump_cbor()
+
+        raw = cbor2.loads(cbor_bytes)
+        assert isinstance(raw, list)
+        assert isinstance(raw[0], bytes)
+        assert cbor2.loads(raw[0]) == {0: "hi"}
+
+        restored = Outer.model_validate_cbor(cbor_bytes)
+        assert restored == obj
+
+    def test_bstr_wrap_nested_model_uses_nested_cbor_config(self) -> None:
+        """Nested model's own CBOR config (encoding, tag) must be respected."""
+
+        class Inner(CBORModel):
+            cbor_config = CBORConfig(encoding="array")
+            a: Annotated[int, CBORField(index=0)]
+            b: Annotated[str, CBORField(index=1)]
+
+        class Outer(CBORModel):
+            inner: Annotated[Inner, CBORField(key=0, bstr_wrap=True)]
+
+        obj = Outer(inner=Inner(a=1, b="x"))
+        cbor_bytes = obj.model_dump_cbor()
+
+        raw = cbor2.loads(cbor_bytes)
+        assert isinstance(raw[0], bytes)
+        # Inner used array encoding, so the bstr contains a CBOR array
+        inner_decoded = cbor2.loads(raw[0])
+        assert isinstance(inner_decoded, list)
+        assert inner_decoded == [1, "x"]
+
+        restored = Outer.model_validate_cbor(cbor_bytes)
+        assert restored == obj

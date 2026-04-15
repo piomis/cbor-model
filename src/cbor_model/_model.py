@@ -28,6 +28,10 @@ from ._config import CBORConfig, CBOREncoders
 from ._field import CBORField
 from ._util import is_optional as _is_optional_annotation
 
+type _CborValue = (
+    int | float | str | bytes | bool | None | list[Any] | dict[Any, Any] | cbor2.CBORTag
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CBORSerializationContext:
@@ -296,23 +300,50 @@ class CBORModel(BaseModel):
         return None
 
     @classmethod
-    def _unwrap_tag(cls, value: cbor2.CBORTag, field_name: str) -> Any:
+    def _unwrap_field(cls, value: _CborValue, field_name: str) -> _CborValue:
         cbor_field = cls.get_cbor_field(field_name)
-        if cbor_field and cbor_field.tag is not None:
+        if cbor_field is None:
+            return value
+        if cbor_field.tag is not None:
+            if not isinstance(value, cbor2.CBORTag):
+                err = (
+                    f"Expected CBORTag for field {field_name!r}, "
+                    f"got {type(value).__name__}"
+                )
+                raise ValueError(err)
             if value.tag != cbor_field.tag:
                 err = (
                     f"Tag mismatch for field {field_name!r}: "
                     f"expected {cbor_field.tag}, got {value.tag}"
                 )
                 raise ValueError(err)
-            return value.value
+            value = value.value
+        if cbor_field.bstr_wrap:
+            if not isinstance(value, bytes):
+                err = (
+                    f"Expected bstr for bstr_wrap field {field_name!r}, "
+                    f"got {type(value).__name__}"
+                )
+                raise ValueError(err)
+            value = cbor2.loads(value)
         return value
 
     @classmethod
-    def _wrap_tag(cls, field_name: str, value: Any) -> Any:
+    def _wrap_field(cls, field_name: str, value: Any) -> _CborValue:
         cbor_field = cls.get_cbor_field(field_name)
-        if cbor_field and cbor_field.tag is not None and value is not None:
-            return cbor2.CBORTag(cbor_field.tag, value)
+        if cbor_field is None or value is None:
+            return value
+        if cbor_field.bstr_wrap:
+            if isinstance(value, CBORModel):
+                value = value.model_dump_cbor()
+            else:
+                value = cbor2.dumps(
+                    value,
+                    default=cls._cbor_encode,
+                    canonical=cls.cbor_config.canonical,
+                )
+        if cbor_field.tag is not None:
+            value = cbor2.CBORTag(cbor_field.tag, value)
         return value
 
     @classmethod
@@ -365,11 +396,7 @@ class CBORModel(BaseModel):
                 cls._cbor_mapping(),
             ).array_order
             mapped: dict[str, Any] = {
-                field_name: (
-                    cls._unwrap_tag(value[i], field_name)
-                    if isinstance(value[i], cbor2.CBORTag)
-                    else value[i]
-                )
+                field_name: cls._unwrap_field(value[i], field_name)
                 for i, field_name in enumerate(array_order)
                 if i < len(value)
             }
@@ -377,11 +404,7 @@ class CBORModel(BaseModel):
         if isinstance(value, dict):
             from_cbor = cast("MapCBORMapping", cls._cbor_mapping()).from_cbor
             value = {
-                from_cbor.get(k, k): (
-                    cls._unwrap_tag(v, from_cbor.get(k, ""))
-                    if isinstance(v, cbor2.CBORTag)
-                    else v
-                )
+                from_cbor.get(k, k): cls._unwrap_field(v, from_cbor.get(k, ""))
                 for k, v in value.items()
             }
         return cast("Self", handler(value))
@@ -426,7 +449,7 @@ class CBORModel(BaseModel):
                 )
             ):
                 continue
-            result[to_cbor[field_name]] = self._wrap_tag(field_name, value)
+            result[to_cbor[field_name]] = self._wrap_field(field_name, value)
         return result
 
     def _serialize_as_array(
@@ -435,7 +458,7 @@ class CBORModel(BaseModel):
         context: CBORSerializationContext,
     ) -> list[Any]:
         array_order = cast("ArrayCBORMapping", self._cbor_mapping()).array_order
-        result = [self._wrap_tag(f, data.get(f)) for f in array_order]
+        result = [self._wrap_field(f, data.get(f)) for f in array_order]
         if context.exclude_none:
             while result and result[-1] is None:
                 result.pop()

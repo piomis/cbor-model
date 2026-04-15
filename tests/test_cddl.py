@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, computed_field
 
 from cbor_model import CBORField, CBORModel, CDDLGenerator
 from cbor_model._config import CBORConfig
-from cbor_model.cddl._util import (
+from cbor_model._util import (
     extract_types_matching,
     is_optional,
     is_type_of,
@@ -463,6 +463,7 @@ class TestCDDLUtilities:
     ) -> None:
         """Test is_union_type detection."""
         origin = get_origin(type_annotation)
+        assert is_union_type(type_annotation) == expected
         assert is_union_type(origin) == expected
 
     @pytest.mark.parametrize(

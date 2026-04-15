@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
     from ._type_converter import TypeConverter
 
-from ._util import is_optional
+from cbor_model._util import is_optional
 
 
 class FieldProcessor:

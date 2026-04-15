@@ -9,7 +9,7 @@ from uuid import UUID
 
 from annotated_types import BaseMetadata, Ge, Gt, Le, Lt, MaxLen, MinLen
 
-from cbor_model.cddl._util import is_optional, is_union_type
+from cbor_model._util import is_optional, is_union_type
 
 if TYPE_CHECKING:
     from pydantic.fields import FieldInfo

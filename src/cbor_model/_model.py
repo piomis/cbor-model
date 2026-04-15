@@ -2,14 +2,12 @@
 
 from dataclasses import dataclass
 from threading import Lock
-from types import NoneType
 from typing import (
     Annotated,
     Any,
     ClassVar,
     NamedTuple,
     Self,
-    Union,
     cast,
     get_args,
     get_origin,
@@ -28,6 +26,7 @@ from pydantic import (
 
 from ._config import CBORConfig, CBOREncoders
 from ._field import CBORField
+from ._util import is_optional as _is_optional_annotation
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,7 +237,7 @@ class CBORModel(BaseModel):
             ann = cls.model_computed_fields[field_name].return_type
             if get_origin(ann) is Annotated:
                 ann = get_args(ann)[0]
-        return get_origin(ann) is Union and NoneType in get_args(ann)
+        return _is_optional_annotation(ann)
 
     @classmethod
     def _build_array_mapping(cls) -> ArrayCBORMapping:

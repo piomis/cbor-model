@@ -1,13 +1,19 @@
 # ruff: noqa: ANN401
+import sys
 from types import NoneType
 from typing import Any, TypeGuard, Union, get_args, get_origin
 
+if sys.version_info >= (3, 14):
+    _UNION_ORIGINS: tuple[Any, ...] = (Union,)
+else:
+    from types import UnionType
+
+    _UNION_ORIGINS = (Union, UnionType)
+
 
 def is_union_type(annotation: Any) -> bool:
-    """Return True when ``annotation`` is a typing.Union."""
-    # Accept either the full annotation (e.g. ``str | int``) or an
-    # already-extracted origin (``typing.Union``) for compatibility.
-    return annotation is Union or get_origin(annotation) is Union
+    """Return True when ``annotation`` is a typing.Union or types.UnionType (<3.14)."""
+    return annotation in _UNION_ORIGINS or get_origin(annotation) in _UNION_ORIGINS
 
 
 def is_optional(annotation: Any) -> bool:

@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from pydantic.fields import FieldInfo
 
 from cbor_model import CBORModel
+from cbor_model._util import extract_types_matching
 
 from ._field_processor import FieldProcessor
 from ._type_converter import TypeConverter
-from ._util import extract_types_matching
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

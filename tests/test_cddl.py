@@ -1,7 +1,7 @@
 # ruff: noqa: FBT001
 
 from enum import Enum, IntEnum
-from typing import Annotated, Any, get_origin
+from typing import Annotated, Any, Literal, get_origin
 
 import pytest
 from pydantic import BaseModel, Field, computed_field
@@ -915,3 +915,61 @@ B = {
     def test_generate_empty_list(self) -> None:
         generator = CDDLGenerator()
         assert generator.generate([]) == ""
+
+
+class TestLiteralCDDL:
+    """Test CDDL generation for Literal type annotations."""
+
+    def test_literal_int(self) -> None:
+
+        class Msg(CBORModel):
+            type: Annotated[Literal[1], CBORField(key=0)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Msg)
+        assert "0: 1," in cddl
+
+    def test_literal_str(self) -> None:
+
+        class Msg(CBORModel):
+            kind: Annotated[Literal["ping"], CBORField(key=0)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Msg)
+        assert '0: "ping",' in cddl
+
+    def test_literal_bool(self) -> None:
+
+        class Msg(CBORModel):
+            flag: Annotated[Literal[True], CBORField(key=0)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Msg)
+        assert "0: true," in cddl
+
+    def test_literal_multi_value(self) -> None:
+
+        class Msg(CBORModel):
+            code: Annotated[Literal[1, 2, 3], CBORField(key=0)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Msg)
+        assert "0: 1 / 2 / 3," in cddl
+
+    def test_literal_optional(self) -> None:
+
+        class Msg(CBORModel):
+            code: Annotated[Literal[7] | None, CBORField(key=0)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Msg)
+        assert "? 0: 7," in cddl
+
+    def test_literal_unsupported_type_raises(self) -> None:
+
+        class Msg(CBORModel):
+            val: Annotated[Literal[b"x"], CBORField(key=0)]  # type: ignore[valid-type]
+
+        generator = CDDLGenerator()
+        with pytest.raises(TypeError, match="Unsupported Literal value type"):
+            generator.generate(Msg)

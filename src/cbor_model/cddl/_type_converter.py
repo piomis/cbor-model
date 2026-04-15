@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from types import NoneType
-from typing import TYPE_CHECKING, Any, Self, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, Self, get_args, get_origin
 from uuid import UUID
 
 from annotated_types import BaseMetadata, Ge, Gt, Le, Lt, MaxLen, MinLen
@@ -132,6 +132,8 @@ class TypeConverter:
                 return self._convert_list(args, field_info)
             if origin is dict:
                 return self._convert_dict(args, field_info)
+            if origin is Literal:
+                return self._convert_literal(args)
 
         if annotation in self.type_map:
             return self._apply_constraints(
@@ -141,6 +143,24 @@ class TypeConverter:
             )
 
         return annotation.__name__
+
+    def _convert_literal(
+        self,
+        args: tuple[Any, ...],
+    ) -> str:
+        """Convert Literal type to CDDL literal syntax."""
+        parts: list[str] = []
+        for arg in args:
+            if isinstance(arg, bool):
+                parts.append("true" if arg else "false")
+            elif isinstance(arg, (int, float)):
+                parts.append(str(arg))
+            elif isinstance(arg, str):
+                parts.append(f'"{arg}"')
+            else:
+                err = f"Unsupported Literal value type {type(arg).__name__!r} for CDDL generation"
+                raise TypeError(err)
+        return " / ".join(parts)
 
     def _convert_union(
         self,

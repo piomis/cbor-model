@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/haggqvist/cbor-model/compare/v0.2.0...v0.3.0) (2026-04-22)
+
+
+### Features
+
+* emit snake_case named keys and add CBORField.description ([7a22520](https://github.com/haggqvist/cbor-model/commit/7a225207613e13c8b8202c38126ec22a2b7c5985))
+
+
+### Bug Fixes
+
+* remove extra trailing comma for description ([e18d0d6](https://github.com/haggqvist/cbor-model/commit/e18d0d69f624c7e2a8779559488404b87ce18001))
+
 ## [0.2.0](https://github.com/haggqvist/cbor-model/compare/v0.1.0...v0.2.0) (2026-04-15)
 
 

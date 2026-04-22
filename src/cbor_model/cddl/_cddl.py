@@ -9,6 +9,7 @@ from cbor_model import CBORModel
 from cbor_model._util import extract_types_matching
 
 from ._field_processor import FieldProcessor
+from ._naming import to_snake
 from ._type_converter import TypeConverter
 
 if TYPE_CHECKING:
@@ -39,9 +40,12 @@ class CDDLGenerator:
             y: Annotated[int, CBORField(key=1)]
 
         print(CDDLGenerator().generate(Point))
+        # point_x = 0
+        # point_y = 1
+        #
         # Point = {
-        #     0: int,
-        #     1: int,
+        #     point_x: int,
+        #     point_y: int,
         # }
         ```
 
@@ -115,15 +119,45 @@ class CDDLGenerator:
         ]
 
         fields = self._generate_fields(model)
+        fields_str = ",\n    ".join(fields)
         if model.cbor_config.encoding == "array":
-            fields_str = ",\n    ".join(fields)
             struct_def = f"{model.__name__} = [\n    {fields_str}\n]"
         else:
-            fields_str = ",\n    ".join(fields)
             struct_def = f"{model.__name__} = {{\n    {fields_str}\n}}"
 
-        all_defs = enum_defs + dep_defs
+        key_defs = (
+            [d] if (d := self._generate_key_definitions(model)) else []
+        )
+
+        all_defs = enum_defs + dep_defs + key_defs
         return "\n\n".join([*all_defs, struct_def]) if all_defs else struct_def
+
+    def _generate_key_definitions[T: CBORModel](self, model: type[T]) -> str:
+        """Generate the per-model integer-key constant block.
+
+        Returns an empty string when the model is not map-encoded or has no
+        integer-keyed fields. Identifiers are formatted as
+        ``<snake_model>_<suffix>`` where the suffix is ``override_name``
+        verbatim when set, else ``to_snake(field_name)``.
+        """
+        config = model.cbor_config
+        if config.encoding != "map":
+            return ""
+
+        prefix = to_snake(model.__name__)
+        entries: list[tuple[int, str]] = []
+        for field_name, _, cbor_field in self._iter_cbor_fields(model):
+            if isinstance(cbor_field.key, int):
+                suffix = cbor_field.override_name or to_snake(field_name)
+                entries.append((cbor_field.key, suffix))
+
+        if not entries:
+            return ""
+
+        entries.sort(key=lambda item: item[0])
+        return "\n".join(
+            f"{prefix}_{suffix} = {key}" for key, suffix in entries
+        )
 
     def _iter_cbor_fields(
         self,
@@ -162,6 +196,7 @@ class CDDLGenerator:
     def _generate_fields[T: CBORModel](self, model: type[T]) -> list[str]:
         """Generate CDDL field definitions for a model."""
         is_array = model.cbor_config.encoding == "array"
+        model_prefix = None if is_array else to_snake(model.__name__)
         fields = [
             (
                 cbor_field.index if is_array else cbor_field.key,
@@ -170,6 +205,7 @@ class CDDLGenerator:
                     field_info,
                     cbor_field,
                     model.cbor_config,
+                    model_prefix=model_prefix,
                 ),
             )
             for field_name, field_info, cbor_field in self._iter_cbor_fields(model)

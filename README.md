@@ -105,11 +105,21 @@ Generate a [CDDL] schema from one or more models:
 from cbor_model.cddl import CDDLGenerator
 
 print(CDDLGenerator().generate(Sensor))
+# sensor_name = 0
+# sensor_value = 1
+#
 # Sensor = {
-#     ? 0: text,  ; name
-#     ? 1: float,  ; value
+#     ? sensor_name: tstr,
+#     ? sensor_value: float
 # }
 ```
+
+Map-encoded models always emit a per-model block of integer-key constants
+(prefix is the model class name converted to `snake_case`) and reference
+those constants in the map body. Use `CBORField(description=...)` to
+attach a free-text comment that is rendered as `; <text>` after the
+field definition, and `CBORField(override_name=...)` to override the
+identifier (used verbatim).
 
 [CBOR]: https://cbor.io/
 [CDDL]: https://www.rfc-editor.org/rfc/rfc8610

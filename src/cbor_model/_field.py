@@ -40,7 +40,13 @@ class CBORField:
         override_type: Override the CDDL type name emitted by
             :class:`CDDLGenerator` for this field.
         override_name: Override the CDDL field name emitted by
-            :class:`CDDLGenerator` for this field.
+            :class:`CDDLGenerator` for this field. Used verbatim (no
+            snake_case conversion) and takes priority over the Python
+            attribute name.
+        description: Free-text comment appended to the CDDL field
+            definition as ``; <description>``. Has no effect on
+            (de)serialization. When omitted, no trailing comment is
+            emitted.
         optional: Mark the field as optional in CDDL output regardless of
             its Python type annotation.
         bstr_wrap: Encode the field value as embedded CBOR bytes (``bstr``).
@@ -67,6 +73,7 @@ class CBORField:
     """
     override_type: str | None = None
     override_name: str | None = None
+    description: str | None = None
     optional: bool = False
     bstr_wrap: bool = False
     exclude_if: Callable[[Any], bool] | None = None

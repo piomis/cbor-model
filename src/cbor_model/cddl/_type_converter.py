@@ -16,29 +16,129 @@ if TYPE_CHECKING:
 
 
 def numeric_modifier_from_metadata(metadata: list[BaseMetadata]) -> str:
-    lowers: list[tuple[Any, bool]] = []
-    uppers: list[tuple[Any, bool]] = []
-    for c in metadata:
-        if isinstance(c, Gt):
-            lowers.append((c.gt, False))
-        elif isinstance(c, Ge):
-            lowers.append((c.ge, True))
-        elif isinstance(c, Lt):
-            uppers.append((c.lt, False))
-        elif isinstance(c, Le):
-            uppers.append((c.le, True))
+    return NumericConstraint.from_metadata(metadata).to_cddl("int")
 
-    if lowers:
-        max_lower, _ = max(lowers, key=lambda t: t[0])
-        if max_lower >= 0:
+
+def _is_integral_number(value: Any) -> bool:
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    if isinstance(value, float):
+        return value.is_integer()
+    return False
+
+
+def _as_int(value: Any) -> int | None:
+    return int(value) if _is_integral_number(value) else None
+
+
+@dataclass
+class NumericConstraint:
+    """Represents numeric bounds for integer CDDL types."""
+
+    lower: tuple[Any, bool] | None = None
+    upper: tuple[Any, bool] | None = None
+
+    @classmethod
+    def from_metadata(
+        cls,
+        metadata: list[BaseMetadata],
+    ) -> Self:
+        """Extract the strongest numeric bounds from metadata."""
+        lower: tuple[Any, bool] | None = None
+        upper: tuple[Any, bool] | None = None
+
+        for constraint in metadata:
+            if isinstance(constraint, Gt):
+                candidate = (constraint.gt, False)
+                if lower is None or cls._is_stronger_lower(candidate, lower):
+                    lower = candidate
+            elif isinstance(constraint, Ge):
+                candidate = (constraint.ge, True)
+                if lower is None or cls._is_stronger_lower(candidate, lower):
+                    lower = candidate
+            elif isinstance(constraint, Lt):
+                candidate = (constraint.lt, False)
+                if upper is None or cls._is_stronger_upper(candidate, upper):
+                    upper = candidate
+            elif isinstance(constraint, Le):
+                candidate = (constraint.le, True)
+                if upper is None or cls._is_stronger_upper(candidate, upper):
+                    upper = candidate
+
+        return cls(lower=lower, upper=upper)
+
+    @staticmethod
+    def _is_stronger_lower(
+        candidate: tuple[Any, bool],
+        current: tuple[Any, bool],
+    ) -> bool:
+        if candidate[0] != current[0]:
+            return candidate[0] > current[0]
+        return not candidate[1] and current[1]
+
+    @staticmethod
+    def _is_stronger_upper(
+        candidate: tuple[Any, bool],
+        current: tuple[Any, bool],
+    ) -> bool:
+        if candidate[0] != current[0]:
+            return candidate[0] < current[0]
+        return not candidate[1] and current[1]
+
+    def __bool__(self) -> bool:
+        return self.lower is not None or self.upper is not None
+
+    def to_cddl(self, base_type: str) -> str:
+        """Convert numeric bounds to RFC 8610 CDDL."""
+        if not self:
+            return base_type
+
+        if self.lower == (0, True) and self.upper is None:
             return "uint"
 
-    if uppers:
-        min_upper, incl = min(uppers, key=lambda t: t[0])
-        if min_upper < 0 or (min_upper == 0 and not incl):
-            return "nint"
+        if self.upper is not None and self.lower is None:
+            upper_value, upper_inclusive = self.upper
+            if upper_value < 0 or (upper_value == 0 and not upper_inclusive):
+                return "nint"
 
-    return "int"
+        if closed_range := self.to_closed_range():
+            lower_bound, upper_bound = closed_range
+            if lower_bound == upper_bound:
+                return str(lower_bound)
+            return f"{lower_bound}..{upper_bound}"
+
+        if self.lower is not None and self.upper is not None:
+            return (
+                f"({base_type} {self._lower_operator()} {self.lower[0]}) "
+                f".and ({base_type} {self._upper_operator()} {self.upper[0]})"
+            )
+
+        if self.lower is not None:
+            return f"{base_type} {self._lower_operator()} {self.lower[0]}"
+
+        return f"{base_type} {self._upper_operator()} {self.upper[0]}"
+
+    def to_closed_range(self) -> tuple[int, int] | None:
+        """Normalize integer bounds to an inclusive range when possible."""
+        if self.lower is None or self.upper is None:
+            return None
+
+        lower_value = _as_int(self.lower[0])
+        upper_value = _as_int(self.upper[0])
+        if lower_value is None or upper_value is None:
+            return None
+
+        lower_bound = lower_value if self.lower[1] else lower_value + 1
+        upper_bound = upper_value if self.upper[1] else upper_value - 1
+        return (lower_bound, upper_bound)
+
+    def _lower_operator(self) -> str:
+        return ".ge" if self.lower is not None and self.lower[1] else ".gt"
+
+    def _upper_operator(self) -> str:
+        return ".le" if self.upper is not None and self.upper[1] else ".lt"
 
 
 @dataclass

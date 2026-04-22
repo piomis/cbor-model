@@ -36,7 +36,7 @@ person_age = 1
 
 Person = {
     person_name: tstr,
-    person_age: uint
+    person_age: int .gt 0
 }"""
         assert cddl == expected
 
@@ -465,7 +465,7 @@ Types = {
         assert cddl == expected
 
     def test_uint_constraint(self) -> None:
-        """Test that int with ge=0 or gt=0 becomes uint."""
+        """Test precise CDDL generation for lower-bound integer constraints."""
 
         class Numbers(CBORModel):
             positive_gt: Annotated[int, CBORField(key=0), Field(gt=0)]
@@ -480,9 +480,37 @@ numbers_positive_ge = 1
 numbers_any_int = 2
 
 Numbers = {
-    numbers_positive_gt: uint,
+    numbers_positive_gt: int .gt 0,
     numbers_positive_ge: uint,
     numbers_any_int: int
+}"""
+        assert cddl == expected
+
+    def test_int_upper_and_range_constraints(self) -> None:
+        """Test that int bounds emit RFC 8610 controls and ranges."""
+
+        class Numbers(CBORModel):
+            upper_only: Annotated[int, CBORField(key=0), Field(le=10)]
+            exclusive_upper: Annotated[int, CBORField(key=1), Field(lt=10)]
+            bounded_uint: Annotated[int, CBORField(key=2), Field(ge=0, le=255)]
+            bounded_signed: Annotated[int, CBORField(key=3), Field(ge=-10, le=10)]
+            normalized_range: Annotated[int, CBORField(key=4), Field(gt=0, lt=10)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Numbers)
+
+        expected = """numbers_upper_only = 0
+numbers_exclusive_upper = 1
+numbers_bounded_uint = 2
+numbers_bounded_signed = 3
+numbers_normalized_range = 4
+
+Numbers = {
+    numbers_upper_only: int .le 10,
+    numbers_exclusive_upper: int .lt 10,
+    numbers_bounded_uint: 0..255,
+    numbers_bounded_signed: -10..10,
+    numbers_normalized_range: 1..9
 }"""
         assert cddl == expected
 
@@ -798,7 +826,7 @@ numbers_negative_le = 4
 numbers_custom = 5
 
 Numbers = {
-    numbers_positive_gt: uint,
+    numbers_positive_gt: int .gt 0,
     numbers_positive_ge: uint,
     numbers_any_int: int,
     numbers_negative_lt: nint,

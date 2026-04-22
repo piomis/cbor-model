@@ -114,6 +114,33 @@ print(CDDLGenerator().generate(Sensor))
 # }
 ```
 
+Integer constraints are rendered as precise RFC 8610-compatible CDDL.
+For example, lower-only bounds use numeric controls such as `.gt` or `.ge`,
+and closed integer bounds are emitted as ranges:
+
+```python
+from typing import Annotated
+from pydantic import Field
+
+from cbor_model import CBORField, CBORModel
+from cbor_model.cddl import CDDLGenerator
+
+
+class Packet(CBORModel):
+    count: Annotated[int, CBORField(key=0), Field(gt=0)]
+    code: Annotated[int, CBORField(key=1), Field(ge=0, le=255)]
+
+
+print(CDDLGenerator().generate(Packet))
+# packet_count = 0
+# packet_code = 1
+#
+# Packet = {
+#     packet_count: int .gt 0,
+#     packet_code: 0..255
+# }
+```
+
 Map-encoded models always emit a per-model block of integer-key constants
 (prefix is the model class name converted to `snake_case`) and reference
 those constants in the map body. Use `CBORField(description=...)` to

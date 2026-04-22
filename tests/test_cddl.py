@@ -14,6 +14,7 @@ from cbor_model._util import (
     is_type_of,
     is_union_type,
 )
+from cbor_model.types import Int1, UInt, UInt1, UInt2, UInt4
 
 from .conftest import Contact, Item, TaggedItem
 
@@ -832,6 +833,36 @@ Numbers = {
     numbers_negative_lt: nint,
     numbers_negative_le: nint,
     numbers_custom: int -10..10
+}"""
+        assert cddl == expected
+
+
+class TestPublicTypes:
+    """Test public integer type aliases."""
+
+    def test_integer_aliases_generate_expected_cddl(self) -> None:
+        class Numbers(CBORModel):
+            int1: Annotated[Int1, CBORField(key=0)]
+            uint: Annotated[UInt, CBORField(key=1)]
+            uint1: Annotated[UInt1, CBORField(key=2)]
+            uint2: Annotated[UInt2, CBORField(key=3)]
+            uint4: Annotated[UInt4, CBORField(key=4)]
+
+        generator = CDDLGenerator()
+        cddl = generator.generate(Numbers)
+
+        expected = """numbers_int_1 = 0
+numbers_uint = 1
+numbers_uint_1 = 2
+numbers_uint_2 = 3
+numbers_uint_4 = 4
+
+Numbers = {
+    numbers_int_1: -128..127,
+    numbers_uint: uint,
+    numbers_uint_1: 0..255,
+    numbers_uint_2: 0..65535,
+    numbers_uint_4: 0..4294967295
 }"""
         assert cddl == expected
 

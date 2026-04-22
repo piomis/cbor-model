@@ -148,6 +148,30 @@ attach a free-text comment that is rendered as `; <text>` after the
 field definition, and `CBORField(override_name=...)` to override the
 identifier (used verbatim).
 
+### Public type aliases
+
+The package also exposes a small set of reusable integer aliases under
+`cbor_model.types`:
+
+```python
+from typing import Annotated
+
+from cbor_model import CBORField, CBORModel, types
+
+
+class Header(CBORModel):
+    version: Annotated[types.UInt1, CBORField(key=0)]
+    length: Annotated[types.UInt2, CBORField(key=1)]
+```
+
+The currently available aliases are:
+
+- `types.Int1`: signed 8-bit integer (`-128..127`)
+- `types.UInt`: unsigned integer (`ge=0`)
+- `types.UInt1`: unsigned 8-bit integer (`0..255`)
+- `types.UInt2`: unsigned 16-bit integer (`0..65535`)
+- `types.UInt4`: unsigned 32-bit integer (`0..4294967295`)
+
 [CBOR]: https://cbor.io/
 [CDDL]: https://www.rfc-editor.org/rfc/rfc8610
 [Pydantic]: https://github.com/pydantic/pydantic

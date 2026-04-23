@@ -1,7 +1,7 @@
 # ruff: noqa: ANN401
 import sys
 from types import NoneType
-from typing import Any, TypeGuard, Union, get_args, get_origin
+from typing import Any, TypeAliasType, TypeGuard, Union, get_args, get_origin
 
 if sys.version_info >= (3, 14):
     _UNION_ORIGINS: tuple[Any, ...] = (Union,)
@@ -9,6 +9,11 @@ else:
     from types import UnionType
 
     _UNION_ORIGINS = (Union, UnionType)
+
+
+def is_type_alias(annotation: Any) -> TypeGuard[TypeAliasType]:
+    """Return True when ``annotation`` is a PEP 695 ``type X = ...`` alias."""
+    return isinstance(annotation, TypeAliasType)
 
 
 def is_union_type(annotation: Any) -> bool:
@@ -21,6 +26,13 @@ def is_optional(annotation: Any) -> bool:
     return is_union_type(annotation) and NoneType in get_args(annotation)
 
 
+def extract_type_aliases(annotation: Any) -> list[TypeAliasType]:
+    """Return all PEP 695 TypeAliasType instances found directly in ``annotation``."""
+    if is_type_alias(annotation):
+        return [annotation]
+    return [a for arg in get_args(annotation) for a in extract_type_aliases(arg)]
+
+
 def is_type_of[T](annotation: Any, target: type[T]) -> TypeGuard[type[T]]:
     return isinstance(annotation, type) and issubclass(annotation, target)
 
@@ -30,6 +42,9 @@ def extract_types_matching[T](
     predicate: type[T],
 ) -> list[type[T]]:
     types: list[type[T]] = []
+    if is_type_alias(annotation):
+        return extract_types_matching(annotation.__value__, predicate)
+
     origin = get_origin(annotation)
     args = get_args(annotation)
 

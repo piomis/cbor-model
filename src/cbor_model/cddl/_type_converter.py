@@ -4,15 +4,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from types import NoneType
-from typing import TYPE_CHECKING, Any, Literal, Self, get_args, get_origin
+from typing import (
+    Any,
+    Literal,
+    Self,
+    get_args,
+    get_origin,
+)
 from uuid import UUID
 
 from annotated_types import BaseMetadata, Ge, Gt, Le, Lt, MaxLen, MinLen
+from pydantic.fields import FieldInfo
 
 from cbor_model._util import is_optional, is_union_type
-
-if TYPE_CHECKING:
-    from pydantic.fields import FieldInfo
 
 
 def numeric_modifier_from_metadata(metadata: list[BaseMetadata]) -> str:
@@ -221,8 +225,14 @@ class TypeConverter:
     ) -> None:
         self.type_map = type_map or DEFAULT_TYPE_MAP.copy()
 
-    def convert(self, annotation: type[Any], field_info: FieldInfo) -> str:
+    def convert(
+        self,
+        annotation: type[Any],
+        field_info: FieldInfo | None = None,
+    ) -> str:
         """Convert a Python type annotation to CDDL type string."""
+        if field_info is None:
+            field_info = FieldInfo()
         origin = get_origin(annotation)
         args = get_args(annotation)
 

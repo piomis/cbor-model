@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/haggqvist/cbor-model/compare/v0.4.0...v0.4.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* emit PEP 695 type aliases as top-level CDDL rules ([#7](https://github.com/haggqvist/cbor-model/issues/7)) ([3c681b2](https://github.com/haggqvist/cbor-model/commit/3c681b2f28358e1c3a66d2b475019683b1b35329))
+* include CBOR tag on models in CDDL ([#8](https://github.com/haggqvist/cbor-model/issues/8)) ([c9bb5b5](https://github.com/haggqvist/cbor-model/commit/c9bb5b5143b0470d112fc91361db79c7c1560f2b))
+
 ## [0.4.0](https://github.com/haggqvist/cbor-model/compare/v0.3.0...v0.4.0) (2026-04-22)
 
 
